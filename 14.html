@@ -1,0 +1,708 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Thinkstream Moments Content Calendar</title>
+<style>
+/* 【全局重置与基础样式】 */
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { 
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; 
+    background: #ffffff; /* 纯白背景 */
+    color: #000000; /* 纯黑文字 */
+    padding: 30px; 
+}
+
+/* 【标题样式：黑白、字体最大】 */
+h2 { 
+    margin-bottom: 20px; 
+    font-size: 42px; /* 最大字号 */
+    font-weight: 800; /* 加粗 */
+    color: #000000;
+    text-align: center; 
+    letter-spacing: -1.5px; /* 收紧字间距，显得更高级 */
+}
+
+/* 【视图切换按钮区域：紧凑、无图标】 */
+.view-toggle { 
+    margin-bottom: 15px; 
+    display: flex; 
+    justify-content: center; 
+    gap: 8px; 
+}
+.toggle-btn { 
+    padding: 5px 12px; 
+    border: 1px solid #000000; 
+    background: white; 
+    color: #000000; 
+    border-radius: 3px; 
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer; 
+    transition: all 0.2s; 
+}
+.toggle-btn.active { 
+    background: #000000; 
+    color: white; 
+}
+
+/* 【工具栏区域】 */
+.toolbar { 
+    margin-bottom: 20px; 
+    display: flex; 
+    flex-direction: column; 
+    gap: 8px; 
+    align-items: center; 
+}
+.toolbar-row { 
+    display: flex; 
+    gap: 8px; 
+    flex-wrap: wrap; 
+    justify-content: center; 
+}
+
+/* 【按钮样式：黑白、小巧、紧凑】 */
+button { 
+    padding: 5px 12px; 
+    border: 1px solid #000000; 
+    border-radius: 3px; 
+    cursor: pointer; 
+    font-size: 12px; 
+    font-weight: 500; 
+    background: #ffffff; 
+    color: #000000; 
+    transition: all 0.2s ease; 
+}
+button:hover { 
+    background: #000000; 
+    color: #ffffff; 
+}
+button:active {
+    transform: scale(0.97); /* 点击时微微缩小 */
+}
+button.danger { 
+    border-color: #000000; /* 危险按钮保持黑白极简 */
+}
+
+/* 【面板容器切换】 */
+.panel-container { display: none; }
+.panel-container.active { display: block; }
+
+/* 【日历主体区域适配】 */
+.calendar-container { 
+    display: flex; 
+    width: 100%; 
+    max-width: 100%; 
+    height: 80vh; 
+    border: 1px solid #eaeaea; /* 极淡的边框 */
+    border-radius: 3px; 
+    background: white; 
+    overflow: hidden; 
+    position: relative; 
+}
+
+/* 【左上角下载源码小字链接】 */
+.download-source-link {
+    position: absolute;
+    top: -18px; /* 悬浮在表格左上角外部 */
+    left: 0;
+    font-size: 10px;
+    color: #ccc; /* 极淡的灰色，非常不显眼 */
+    text-decoration: none;
+    cursor: pointer;
+    z-index: 20;
+}
+.download-source-link:hover {
+    color: #999; /* 鼠标悬停时稍微变深一点 */
+}
+
+.fixed-left-panel { 
+    width: 320px; 
+    flex-shrink: 0; 
+    display: flex; 
+    flex-direction: column; 
+    border-right: 1px solid #eaeaea; 
+    background: white; 
+    z-index: 10; 
+}
+.fixed-header-row { 
+    display: flex; 
+    height: 36px; 
+    border-bottom: 1px solid #eaeaea; 
+    background: #fafafa; 
+}
+.fixed-header { 
+    display: flex; 
+    align-items: center; 
+    justify-content: center; 
+    font-size: 11px; 
+    font-weight: bold; 
+    color: #000000; 
+}
+.fixed-header:first-child { width: 180px; }
+.fixed-header:last-child { width: 140px; border-left: 1px solid #f0f0f0; }
+.fixed-body { flex: 1; overflow-y: hidden; position: relative; }
+.scroll-area { flex: 1; overflow: auto; }
+.grid { display: grid; }
+.scroll-grid { grid-template-columns: repeat(var(--month-count, 12), 70px); }
+.month { 
+    height: 36px; 
+    display: flex; 
+    align-items: center; 
+    justify-content: center; 
+    font-size: 11px; 
+    font-weight: bold; 
+    color: #000000; 
+    border-bottom: 1px solid #eaeaea; 
+    background: #fafafa; 
+    position: sticky; 
+    top: 0; 
+    z-index: 5; 
+}
+/* 年份背景色全部改为极简白/灰，不抢马卡龙色的风头 */
+.year-2026, .year-2027, .year-2028, .year-2029 { 
+    background-color: #fafafa; 
+    color: #000000; 
+}
+.fixed-row { display: flex; height: 48px; position: absolute; left: 0; right: 0; }
+.fixed-row .label-cell { width: 180px; display: flex; align-items: center; padding: 0 8px; font-size: 11px; }
+.fixed-row .hashtag-cell { width: 140px; display: flex; align-items: center; padding: 0 8px; font-size: 11px; border-left: 1px solid #f0f0f0; }
+.fixed-row input { width: 100%; border: none; background: transparent; font-size: 11px; outline: none; padding: 0; color: #333; }
+.add-row-btn, .delete-row { cursor: pointer; font-size: 14px; color: #999; padding: 0 4px; user-select: none; }
+.add-row-btn:hover, .delete-row:hover { color: #000000; }
+.cell { 
+    height: 48px; 
+    display: flex; 
+    align-items: center; 
+    justify-content: center; 
+    font-size: 10px; 
+    color: #ffffff !important; 
+    cursor: pointer; 
+    position: relative; 
+    transition: all 0.15s; 
+    padding: 4px; 
+    text-align: center; 
+    line-height: 1.3; 
+    white-space: normal; 
+    word-break: break-all; 
+    overflow-wrap: break-word; 
+    user-select: none; 
+    border: 1px solid #ffffff; 
+}
+.cell.active { border: 1px solid #ffffff; box-shadow: inset 0 0 0 1px rgba(255,255,255,0.5); }
+.cell:hover { box-shadow: inset 0 0 0 2px rgba(255,255,255,0.6); }
+
+/* 【全年概览面板适配】 */
+.overview-panel { background: white; border: 1px solid #eaeaea; border-radius: 3px; padding: 15px; }
+.timeline-container { display: flex; flex-direction: column; gap: 8px; }
+.timeline-row { display: flex; align-items: center; height: 32px; border-radius: 3px; overflow: hidden; }
+.timeline-label { width: 160px; flex-shrink: 0; font-size: 11px; font-weight: 600; color: #000000; padding: 0 10px; text-align: right; border-right: 1px solid #eee; background: #fafafa; }
+.timeline-track { flex: 1; display: flex; height: 100%; background: #f9f9f9; }
+.timeline-cell { 
+    flex: 1; 
+    height: 100%; 
+    border-right: 1px solid rgba(0,0,0,0.03); 
+    display: flex; 
+    align-items: center; 
+    justify-content: center; 
+    font-size: 0px; /* 隐藏文字 */
+    color: transparent; /* 隐藏文字 */
+    overflow: hidden; 
+    text-overflow: ellipsis; 
+    white-space: nowrap; 
+    padding: 0 2px; 
+}
+.timeline-cell.active { transition: all 0.2s; }
+.timeline-cell.active:hover { filter: brightness(1.1); }
+.overview-months { display: flex; margin-left: 160px; margin-bottom: 5px; }
+.overview-month-label { flex: 1; text-align: center; font-size: 10px; color: #999; border-right: 1px solid rgba(0,0,0,0.03); }
+.note { text-align: center; margin-top: 12px; font-size: 11px; color: #999; font-style: italic; }
+
+@media (max-width: 900px) { 
+    .fixed-left-panel { width: 260px; } 
+    .fixed-row .label-cell { width: 160px; font-size: 10px; } 
+    .fixed-row .hashtag-cell { width: 100px; } 
+    .scroll-grid { grid-template-columns: repeat(var(--month-count, 12), 60px); } 
+    .cell { font-size: 8px; } 
+}
+</style>
+</head>
+<body>
+
+<h2>Thinkstream Moments Content Calendar</h2>
+
+<div class="view-toggle">
+    <div class="toggle-btn active" onclick="switchView('editor')">Editor</div>
+    <div class="toggle-btn" onclick="switchView('overview')">Overview</div>
+</div>
+
+<div class="toolbar">
+    <div class="toolbar-row">
+        <button onclick="saveToFile()">Save</button>
+        <button onclick="loadFromFile()">Load</button>
+        <button class="danger" onclick="resetAll()">Reset</button>
+    </div>
+    <div class="toolbar-row">
+        <button onclick="addRow()">Add Row</button>
+        <button onclick="addMonths()">Add Months</button>
+    </div>
+</div>
+
+<div id="editorPanel" class="panel-container active">
+    <div class="calendar-container">
+        <!-- 左上角下载源码小字链接（JS逻辑直接内联在这里，防止标签冲突） -->
+        <a class="download-source-link" onclick="const h=document.documentElement.outerHTML;const b=new Blob([h],{type:'application/json'});const u=URL.createObjectURL(b);const a=document.createElement('a');a.href=u;a.download='calendar_source.json';document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(u);">source</a>
+
+        <div class="fixed-left-panel">
+            <div class="fixed-header-row">
+                <div class="fixed-header">Activity</div>
+                <div class="fixed-header">Hashtag</div>
+            </div>
+            <div class="fixed-body" id="fixedBody"></div>
+        </div>
+        <div class="scroll-area" id="scrollArea">
+            <div class="grid scroll-grid" id="scrollGrid"></div>
+        </div>
+    </div>
+    <div class="note">Click to toggle · Double-click to edit</div>
+</div>
+
+<div id="overviewPanel" class="panel-container">
+    <div class="overview-panel">
+        <div class="overview-months" id="overviewMonths"></div>
+        <div class="timeline-container" id="timelineContainer"></div>
+    </div>
+</div>
+
+<input type="file" id="fileInput" accept=".json" style="display: none;" onchange="handleFileLoad(event)">
+
+<script>// 【18色鲜亮干净果汁感马卡龙色系，无灰调，保证绝不重复且相邻差异大】
+const COLOR_PALETTE = [
+    '#FFB7B2', // 鲜亮蜜桃粉
+    '#A2E1DB', // 清新蒂芙尼蓝
+    '#B5EAD7', // 奶油薄荷绿
+    '#FFDAC1', // 杏桃奶油色
+    '#E2F0CB', // 鲜亮嫩芽绿
+    '#C7CEEA', // 浅薰衣草紫
+    '#FF9AA2', // 鲜亮珊瑚粉
+    '#8FD3F4', // 晴空淡蓝
+    '#FDFD96', // 鲜亮柠檬黄
+    '#F8C8DC', // 樱花淡粉
+    '#C9E4CA', // 抹茶拿铁绿
+    '#E0BBE4', // 丁香紫
+    '#FFDFD3', // 蜜桃奶油色
+    '#87CEEB', // 天蓝色
+    '#FAD2E1', // 玫瑰奶油色
+    '#98FB98', // 嫩草绿
+    '#F6EAC2', // 香草奶油黄
+    '#ADD8E6'  // 浅冰蓝
+];
+
+// 辅助函数：将十六进制颜色转为 RGB 数组
+function hexToRgb(hex) {
+    const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+    return result ? [
+        parseInt(result[1], 16),
+        parseInt(result[2], 16),
+        parseInt(result[3], 16)
+    ] : [0, 0, 0];
+}
+
+// 辅助函数：计算两个 RGB 色之间的欧几里得距离
+function getColorDistance(rgb1, rgb2) {
+    return Math.sqrt(
+        Math.pow(rgb1[0] - rgb2[0], 2) +
+        Math.pow(rgb1[1] - rgb2[1], 2) +
+        Math.pow(rgb1[2] - rgb2[2], 2)
+    );
+}
+
+// 核心分配函数：【完美融合版】全局防重复 + 局部防撞色
+function assignUniqueColor(index, currentRows) {
+    if (currentRows.length === 0) return COLOR_PALETTE[0];
+
+    // 第一步：收集当前所有已经被占用的颜色（保证全局绝不重复）
+    const usedColors = new Set();
+    currentRows.forEach(row => {
+        if (row.color) usedColors.add(row.color);
+    });
+
+    // 第二步：从调色板中剔除已被占用的颜色，得到“可用颜色池”
+    let availableColors = COLOR_PALETTE.filter(c => !usedColors.has(c));
+
+    // 如果颜色池被掏空了（比如超过18行），强制重置，允许循环取色
+    if (availableColors.length === 0) {
+        availableColors = [...COLOR_PALETTE];
+    }
+
+    // 第三步：获取当前要插入位置的上下两行颜色
+    const prevColor = index > 0 ? currentRows[index - 1].color : null;
+    const nextColor = index < currentRows.length ? currentRows[index].color : null;
+    const prevRgb = prevColor ? hexToRgb(prevColor) : null;
+    const nextRgb = nextColor ? hexToRgb(nextColor) : null;
+
+    // 第四步：在“可用颜色池”里，找一个和上下两行距离最远的颜色
+    let bestColor = availableColors[0];
+    let maxMinDistance = -1;
+
+    for (let i = 0; i < availableColors.length; i++) {
+        const candidateRgb = hexToRgb(availableColors[i]);
+        let minDistance = Infinity;
+
+        // 计算与上一行的距离
+        if (prevRgb) {
+            minDistance = Math.min(minDistance, getColorDistance(candidateRgb, prevRgb));
+        }
+        // 计算与下一行的距离
+        if (nextRgb) {
+            minDistance = Math.min(minDistance, getColorDistance(candidateRgb, nextRgb));
+        }
+
+        // 如果没有相邻行，距离设为最大值
+        if (!prevRgb && !nextRgb) minDistance = Infinity;
+
+        // 选取“与相邻行最小距离”最大的那个颜色（即离上下两行都最远的颜色）
+        if (minDistance > maxMinDistance) {
+            maxMinDistance = minDistance;
+            bestColor = availableColors[i];
+        }
+    }
+
+    return bestColor;
+}
+
+const MONTH_NAMES = ['1','2','3','4','5','6','7','8','9','10','11','12'];
+const DEFAULT_ROWS = [
+    { key: 'innofest', name: 'InnoFest', hashtag: '#InnoFest #Innovation' },
+    { key: '5c_campaign', name: '5C Campaign', hashtag: '#5C #Campaign' },
+    { key: 'ai_apex', name: 'AI APEX (TBD)', hashtag: '#AI #Apex' },
+    { key: 'all_hands', name: 'Quarterly All Hands Meeting', hashtag: '#AllHands #Team' },
+    { key: 'festivals', name: 'Festivals', hashtag: '#Festivals #Holidays' },
+    { key: 'thinkpad_35', name: 'ThinkPad 35th Anniversary (TBD)', hashtag: '#ThinkPad35 #Anniversary' }
+];
+
+const STORAGE_KEY = 'thinkstream_calendar_v20'; 
+const START_YEAR = 2026;
+const START_MONTH = 6;
+let state = { rows: [], cells: {}, monthCount: 24 };
+
+function init() { loadData(); render(); initScrollSync(); }
+
+function loadData() {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved) {
+        try {
+            const parsed = JSON.parse(saved);
+            state.rows = parsed.rows || [];
+            state.cells = parsed.cells || {};
+            state.monthCount = parsed.monthCount || 24;
+        } catch(e) { resetState(); }
+    } else { resetState(); }
+}
+
+function resetState() {
+    // 先给默认行分配好颜色
+    state.rows = DEFAULT_ROWS.map((r, index) => ({ 
+        ...r, 
+        color: '', // 先留空，下面统一分配
+        isDefault: true 
+    }));
+    
+    // 遍历每一行，根据上下相邻关系分配最合适的颜色
+    state.rows.forEach((row, index) => {
+        row.color = assignUniqueColor(index, state.rows);
+    });
+
+    state.cells = {}; 
+    state.monthCount = 24;
+    saveData();
+}
+
+function saveData() { localStorage.setItem(STORAGE_KEY, JSON.stringify({ rows: state.rows, cells: state.cells, monthCount: state.monthCount })); }
+
+function getMonthInfo(index) {
+    const totalMonth = START_MONTH + index;
+    const year = START_YEAR + Math.floor(totalMonth / 12);
+    const month = totalMonth % 12;
+    return { year, month, label: MONTH_NAMES[month], display: MONTH_NAMES[month] };
+}
+
+function escapeHtml(text) {
+    const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
+    return (text || '').replace(/[&<>"']/g, function(m) { return map[m]; });
+}
+
+// 切换面板视图
+function switchView(view) {
+    const editorPanel = document.getElementById('editorPanel');
+    const overviewPanel = document.getElementById('overviewPanel');
+    const buttons = document.querySelectorAll('.toggle-btn');
+    
+    if (view === 'editor') {
+        editorPanel.classList.add('active');
+        overviewPanel.classList.remove('active');
+        buttons[0].classList.add('active');
+        buttons[1].classList.remove('active');
+    } else {
+        editorPanel.classList.remove('active');
+        overviewPanel.classList.add('active');
+        buttons[0].classList.remove('active');
+        buttons[1].classList.add('active');
+        renderOverview(); 
+    }
+}
+
+// 渲染概览面板
+function renderOverview() {
+    const container = document.getElementById('timelineContainer');
+    const monthsHeader = document.getElementById('overviewMonths');
+    container.innerHTML = '';
+    monthsHeader.innerHTML = '';
+
+    for (let i = 0; i < state.monthCount; i++) {
+        const info = getMonthInfo(i);
+        const label = document.createElement('div');
+        label.className = 'overview-month-label';
+        label.textContent = info.display;
+        monthsHeader.appendChild(label);
+    }
+
+    state.rows.forEach(row => {
+        const rowEl = document.createElement('div');
+        rowEl.className = 'timeline-row';
+        
+        const labelEl = document.createElement('div');
+        labelEl.className = 'timeline-label';
+        labelEl.textContent = row.name;
+        rowEl.appendChild(labelEl);
+
+        const trackEl = document.createElement('div');
+        trackEl.className = 'timeline-track';
+        
+        for (let mi = 0; mi < state.monthCount; mi++) {
+            const cellKey = row.key + '_' + mi;
+            let cellData = state.cells[cellKey];
+            let isActive = false;
+            let currentText = '';
+
+            if (typeof cellData === 'object' && cellData !== null) {
+                isActive = cellData.active === true;
+                currentText = cellData.text || '';
+            } else if (cellData === true) {
+                isActive = true;
+            }
+
+            const cell = document.createElement('div');
+            cell.className = 'timeline-cell';
+            if (isActive) {
+                cell.classList.add('active');
+                cell.style.backgroundColor = row.color || '#cccccc';
+                cell.textContent = currentText;
+                cell.title = `${row.name}: ${currentText}`; 
+            }
+            trackEl.appendChild(cell);
+        }
+        
+        rowEl.appendChild(trackEl);
+        container.appendChild(rowEl);
+    });
+}
+
+function render() {
+    const fixedBody = document.getElementById('fixedBody');
+    const scrollGrid = document.getElementById('scrollGrid');
+    
+    scrollGrid.style.setProperty('--month-count', state.monthCount);
+    fixedBody.innerHTML = '';
+    scrollGrid.innerHTML = '';
+
+    for (let i = 0; i < state.monthCount; i++) {
+        const info = getMonthInfo(i);
+        const el = document.createElement('div');
+        el.className = 'month';
+        el.classList.add('year-' + info.year); 
+        el.textContent = info.display;
+        el.title = info.year;
+        scrollGrid.appendChild(el);
+    }
+
+    state.rows.forEach((row, index) => {
+        const fixedRow = document.createElement('div');
+        fixedRow.className = 'fixed-row';
+        fixedRow.style.top = (index * 52) + 'px'; 
+        fixedRow.innerHTML = `
+            <div class="label-cell">
+                <span class="add-row-btn" title="Insert row above" onclick="insertRow(${index})">+</span>
+                <input class="edit-name" value="${escapeHtml(row.name)}" onchange="updateRowName('${row.key}', this.value)">
+                <span class="delete-row" title="Delete row" onclick="deleteRow('${row.key}')">×</span>
+            </div>
+            <div class="hashtag-cell">
+                <input value="${escapeHtml(row.hashtag || '')}" onchange="updateRowHashtag('${row.key}', this.value)" placeholder="Add hashtag...">
+            </div>
+        `;
+        fixedBody.appendChild(fixedRow);
+
+        for (let mi = 0; mi < state.monthCount; mi++) {
+            const cellKey = row.key + '_' + mi;
+            let cellData = state.cells[cellKey];
+            let isActive = false;
+            let currentText = '';
+            
+            if (typeof cellData === 'object' && cellData !== null) {
+                isActive = cellData.active === true;
+                currentText = cellData.text || '';
+            } else if (cellData === true) {
+                isActive = true;
+                currentText = '';
+            }
+            const cell = document.createElement('div');
+            cell.className = 'cell';
+            if (isActive) cell.classList.add('active');
+            cell.style.backgroundColor = isActive ? (row.color || '#cccccc') : '#f0f0f0';
+            cell.innerText = currentText;
+            cell.onclick = (e) => {
+                e.stopPropagation();
+                const newStatus = !isActive;
+                if (newStatus) {
+                    state.cells[cellKey] = { active: true, text: '' };
+                } else {
+                    delete state.cells[cellKey];
+                }
+                saveData();
+                render();
+            };
+            cell.ondblclick = (e) => {
+                e.stopPropagation();
+                if (!isActive) {
+                    state.cells[cellKey] = { active: true, text: '' };
+                    saveData();
+                    render();
+                    setTimeout(() => {
+                        const newCell = document.querySelector(`[data-key="${cellKey}"]`);
+                        if (newCell) newCell.ondblclick(e);
+                    }, 50);
+                    return;
+                }
+                const current = state.cells[cellKey];
+                const text = typeof current === 'object' ? (current.text || '') : '';
+                const newText = prompt('编辑内容:', text);
+                if (newText !== null) {
+                    state.cells[cellKey] = { active: true, text: newText };
+                    saveData();
+                    render();
+                }
+            };
+            cell.dataset.key = cellKey;
+            scrollGrid.appendChild(cell);
+        }
+    });
+    fixedBody.style.height = (state.rows.length * 52) + 'px';
+}
+
+function initScrollSync() {
+    const scrollArea = document.getElementById('scrollArea');
+    const fixedBody = document.getElementById('fixedBody');
+    scrollArea.addEventListener('scroll', () => {
+        fixedBody.scrollTop = scrollArea.scrollTop;
+    });
+}
+
+function updateRowName(key, value) {
+    const row = state.rows.find(r => r.key === key);
+    if (row) { row.name = value; saveData(); renderOverview(); }
+}
+
+function updateRowHashtag(key, value) {
+    const row = state.rows.find(r => r.key === key);
+    if (row) { row.hashtag = value; saveData(); }
+}
+
+function generateUniqueKey() {
+    return 'row_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+}
+
+function addRow() {
+    const newKey = generateUniqueKey();
+    // 传入当前行数和所有行，让它自动避开最后一行的颜色
+    const newColor = assignUniqueColor(state.rows.length, state.rows);
+    const newRow = { key: newKey, name: 'New Activity', hashtag: '', color: newColor, isDefault: false };
+    state.rows.push(newRow);
+    saveData();
+    render();
+}
+
+function insertRow(index) {
+    const newKey = generateUniqueKey();
+    // 传入插入的位置index，函数会自动避开 index-1 和 index 处的颜色
+    const newColor = assignUniqueColor(index, state.rows);
+    const newRow = { key: newKey, name: 'New Activity', hashtag: '', color: newColor, isDefault: false };
+    state.rows.splice(index, 0, newRow);
+    saveData();
+    render();
+}
+
+function deleteRow(key) {
+    const index = state.rows.findIndex(r => r.key === key);
+    if (index === -1) return;
+    const row = state.rows[index];
+    if (row.isDefault) {
+        if (!confirm(`"${row.name}" 是默认行，确定要删除吗？`)) return;
+    }
+    state.rows.splice(index, 1);
+    Object.keys(state.cells).forEach(cellKey => {
+        if (cellKey.startsWith(key + '_')) delete state.cells[cellKey];
+    });
+    saveData();
+    render();
+}
+
+function addMonths() {
+    state.monthCount += 6;
+    saveData();
+    render();
+}
+
+function saveToFile() {
+    const dataStr = JSON.stringify({ rows: state.rows, cells: state.cells, monthCount: state.monthCount }, null, 2);
+    const blob = new Blob([dataStr], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'thinkstream_calendar_' + new Date().toISOString().slice(0, 10) + '.json';
+    a.click();
+    URL.revokeObjectURL(url);
+}
+
+function loadFromFile() { document.getElementById('fileInput').click(); }
+
+function handleFileLoad(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        try {
+            const parsed = JSON.parse(e.target.result);
+            state.rows = parsed.rows || [];
+            state.cells = parsed.cells || {};
+            state.monthCount = parsed.monthCount || 24;
+            saveData();
+            render();
+            alert('加载成功！');
+        } catch (err) { alert('文件格式错误！'); }
+    };
+    reader.readAsText(file);
+    event.target.value = '';
+}
+
+function resetAll() {
+    if (confirm('确定要重置所有数据吗？此操作不可恢复！')) {
+        resetState();
+        render();
+    }
+}
+
+window.onload = init;
+</script>
+</body>
+</html>
